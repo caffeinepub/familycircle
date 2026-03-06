@@ -5,8 +5,8 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
 } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
 
@@ -37,6 +37,12 @@ const rootRoute = createRootRoute({
 
 // ------ Index Route (redirect based on auth state) ------
 
+// Maximum milliseconds to wait for actor initialisation before bypassing the
+// loading gate.  This prevents the app from freezing indefinitely when the
+// backend _initializeAccessControlWithSecret call retries on failure (e.g.
+// when CAFFEINE_ADMIN_TOKEN env var is not available in the canister).
+const ACTOR_INIT_TIMEOUT_MS = 6_000;
+
 function IndexPage() {
   const { identity, isInitializing } = useInternetIdentity();
   const {
@@ -45,8 +51,22 @@ function IndexPage() {
     isFetched,
   } = useGetCallerUserProfile();
 
+  // Safety valve: if loading takes too long (actor retry loop), stop waiting
+  // and route the user based on whether they have a stored identity.
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isInitializing && !profileLoading) return;
+    const id = window.setTimeout(
+      () => setTimedOut(true),
+      ACTOR_INIT_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [isInitializing, profileLoading]);
+
+  const isStillLoading = (isInitializing || profileLoading) && !timedOut;
+
   // While initializing, show nothing (avoids flash)
-  if (isInitializing || profileLoading) {
+  if (isStillLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
