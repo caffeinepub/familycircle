@@ -1,7 +1,16 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Principal } from "@icp-sdk/core/principal";
+import { Link } from "@tanstack/react-router";
 import { Heart, Loader2, MessageCircle, Send, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
@@ -15,6 +24,7 @@ import {
   useLikePost,
 } from "../hooks/useQueries";
 import { formatRelativeTime } from "../utils/time";
+import { UserAvatar } from "./UserAvatar";
 
 // ─── Username resolver ────────────────────────────────────────────────────────
 
@@ -100,6 +110,174 @@ function CommentItem({
   );
 }
 
+// ─── Single liker avatar (resolves profile) ───────────────────────────────────
+
+function LikerAvatar({
+  principal,
+  index,
+}: {
+  principal: Principal;
+  index: number;
+}) {
+  const { data: profile } = useGetUserProfile(principal);
+  return (
+    <span
+      className="inline-flex"
+      style={{ marginLeft: index > 0 ? "-8px" : 0, zIndex: 10 - index }}
+    >
+      <UserAvatar
+        profile={profile}
+        size="xs"
+        className="h-6 w-6 ring-2 ring-background"
+      />
+    </span>
+  );
+}
+
+// ─── Liker row in modal ───────────────────────────────────────────────────────
+
+function LikerRow({
+  principal,
+  index,
+  onClose,
+}: {
+  principal: Principal;
+  index: number;
+  onClose: () => void;
+}) {
+  const { data: profile, isLoading } = useGetUserProfile(principal);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 py-2.5 px-1">
+        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+        <Skeleton className="h-4 w-28 rounded" />
+      </div>
+    );
+  }
+
+  if (!profile) return null;
+
+  return (
+    <Link
+      to="/profile/$username"
+      params={{ username: profile.username }}
+      onClick={onClose}
+      className={cn(
+        "flex items-center gap-3 py-2.5 px-2 rounded-lg",
+        "hover:bg-muted/60 transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+      data-ocid={`post.likers.item.${index}`}
+    >
+      <UserAvatar profile={profile} size="sm" className="shrink-0" />
+      <span className="text-sm font-medium text-foreground">
+        @{profile.username}
+      </span>
+    </Link>
+  );
+}
+
+// ─── Likers modal ─────────────────────────────────────────────────────────────
+
+function LikersModal({
+  open,
+  onClose,
+  likes,
+}: {
+  open: boolean;
+  onClose: () => void;
+  likes: Principal[];
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent
+        className="max-w-sm p-0 overflow-hidden"
+        data-ocid="post.likers.modal"
+      >
+        <DialogHeader className="px-5 pt-5 pb-0">
+          <DialogTitle className="text-base font-semibold">
+            Liked by
+            <span className="ml-1.5 text-muted-foreground font-normal text-sm">
+              ({likes.length})
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-80 mt-3">
+          <div className="px-3 pb-4 space-y-0.5">
+            {likes.map((principal, idx) => (
+              <LikerRow
+                key={principal.toString()}
+                principal={principal}
+                index={idx + 1}
+                onClose={onClose}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Avatar stack (tappable) ──────────────────────────────────────────────────
+
+function LikersAvatarStack({
+  likes,
+  onOpen,
+}: {
+  likes: Principal[];
+  onOpen: () => void;
+}) {
+  if (likes.length === 0) return null;
+
+  const MAX_VISIBLE = 3;
+  const visible = likes.slice(0, MAX_VISIBLE);
+  const overflow = likes.length - MAX_VISIBLE;
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        "flex items-center gap-2 mt-2 group cursor-pointer",
+        "rounded-full hover:bg-muted/50 transition-colors duration-150 py-1 px-1 -ml-1",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+      )}
+      aria-label={`View ${likes.length} ${likes.length === 1 ? "like" : "likes"}`}
+      data-ocid="post.likers.open_modal_button"
+    >
+      {/* Overlapping avatars */}
+      <span className="flex items-center" aria-hidden>
+        {visible.map((p, i) => (
+          <LikerAvatar key={p.toString()} principal={p} index={i} />
+        ))}
+        {overflow > 0 && (
+          <span
+            className={cn(
+              "inline-flex items-center justify-center",
+              "h-6 w-auto min-w-6 px-1.5 rounded-full",
+              "bg-muted text-muted-foreground text-[10px] font-semibold",
+              "ring-2 ring-background",
+              "-ml-2",
+            )}
+            style={{ zIndex: 0 }}
+          >
+            +{overflow}
+          </span>
+        )}
+      </span>
+      {/* Subtle text cue */}
+      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-150 leading-none">
+        {likes.length === 1 ? "1 like" : `${likes.length} likes`}
+      </span>
+    </motion.button>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface PostLikesCommentsProps {
@@ -119,6 +297,7 @@ export function PostLikesComments({
 }: PostLikesCommentsProps) {
   const [commentsOpen, setCommentsOpen] = useState(defaultExpanded);
   const [commentText, setCommentText] = useState("");
+  const [likersModalOpen, setLikersModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: likes = [] } = useGetLikes(postId);
@@ -230,6 +409,21 @@ export function PostLikesComments({
           </span>
         </button>
       </div>
+
+      {/* Likers avatar stack */}
+      {likes.length > 0 && (
+        <LikersAvatarStack
+          likes={likes}
+          onOpen={() => setLikersModalOpen(true)}
+        />
+      )}
+
+      {/* Likers modal */}
+      <LikersModal
+        open={likersModalOpen}
+        onClose={() => setLikersModalOpen(false)}
+        likes={likes}
+      />
 
       {/* Collapsible comment section */}
       <AnimatePresence>
