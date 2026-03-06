@@ -8,7 +8,7 @@ const SAMPLE_POSTS = [
     id: 1,
     username: "sarah_miller",
     initials: "SM",
-    caption: "Sunday brunch with the whole family 🥞",
+    caption: "Sunday brunch with the whole crew 🥞",
     time: "2h ago",
     bg: "from-amber-100 to-orange-100",
     emoji: "🥞",
@@ -51,8 +51,8 @@ const features = [
   },
   {
     num: "04",
-    title: "Family-first social",
-    desc: "Find friends by username and build your private family circle.",
+    title: "People-first social",
+    desc: "Find friends by username and build your private circle.",
   },
 ];
 
@@ -83,12 +83,12 @@ export function LandingPage() {
                 className="flex items-center gap-2 mb-6"
               >
                 <img
-                  src="/assets/generated/familycircle-logo-transparent.dim_120x120.png"
-                  alt="FamilyCircle"
+                  src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
+                  alt="MyCircle"
                   className="h-10 w-10"
                 />
                 <span className="font-display font-bold text-2xl text-foreground">
-                  FamilyCircle
+                  MyCircle
                 </span>
               </motion.div>
 
@@ -101,7 +101,7 @@ export function LandingPage() {
                 Your private space for{" "}
                 <span className="relative inline-block">
                   <span className="relative z-10 text-primary">
-                    family memories
+                    shared memories
                   </span>
                   <svg
                     aria-hidden="true"
@@ -206,7 +206,7 @@ export function LandingPage() {
         >
           <img
             src="/assets/generated/hero-landing.dim_1200x600.jpg"
-            alt="Family memories"
+            alt="Shared memories"
             className="w-full object-cover h-64 sm:h-80"
           />
         </motion.div>

@@ -89,6 +89,13 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface Comment {
+    id: bigint;
+    createdAt: bigint;
+    text: string;
+    author: Principal;
+    postId: bigint;
+}
 export interface Post {
     id: bigint;
     media: ExternalBlob;
@@ -147,23 +154,30 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     acceptFriendRequest(friend: Principal): Promise<void>;
+    addComment(postId: bigint, text: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPost(caption: string, media: ExternalBlob, mediaType: MediaType): Promise<bigint>;
     declineFriendRequest(friend: Principal): Promise<void>;
+    deleteComment(postId: bigint, commentId: bigint): Promise<void>;
     deletePost(id: bigint): Promise<void>;
     editPost(id: bigint, newCaption: string): Promise<void>;
     getAcceptedFriends(): Promise<Array<Principal>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getComments(postId: bigint): Promise<Array<Comment>>;
+    getLikes(postId: bigint): Promise<Array<Principal>>;
     getMainFeed(): Promise<Array<Post>>;
     getNotifications(): Promise<Array<Notification>>;
     getPendingFriendRequests(): Promise<Array<Principal>>;
     getPostById(id: bigint): Promise<Post>;
+    getPrincipalByUsername(username: string): Promise<Principal | null>;
     getProfileByUsername(username: string): Promise<UserProfile | null>;
     getProfilePosts(user: Principal): Promise<Array<Post>>;
+    getSentFriendRequests(): Promise<Array<Principal>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isUsernameAvailable(username: string): Promise<boolean>;
+    likePost(postId: bigint): Promise<void>;
     markAllNotificationsAsRead(): Promise<void>;
     register(username: string, bio: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
@@ -286,6 +300,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addComment(arg0: bigint, arg1: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addComment(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addComment(arg0, arg1);
+            return result;
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -325,6 +353,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.declineFriendRequest(arg0);
+            return result;
+        }
+    }
+    async deleteComment(arg0: bigint, arg1: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteComment(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteComment(arg0, arg1);
             return result;
         }
     }
@@ -398,6 +440,34 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n18(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getComments(arg0: bigint): Promise<Array<Comment>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getComments(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getComments(arg0);
+            return result;
+        }
+    }
+    async getLikes(arg0: bigint): Promise<Array<Principal>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getLikes(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getLikes(arg0);
+            return result;
+        }
+    }
     async getMainFeed(): Promise<Array<Post>> {
         if (this.processError) {
             try {
@@ -454,6 +524,20 @@ export class Backend implements backendInterface {
             return from_candid_Post_n21(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getPrincipalByUsername(arg0: string): Promise<Principal | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPrincipalByUsername(arg0);
+                return from_candid_opt_n30(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPrincipalByUsername(arg0);
+            return from_candid_opt_n30(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getProfileByUsername(arg0: string): Promise<UserProfile | null> {
         if (this.processError) {
             try {
@@ -480,6 +564,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getProfilePosts(arg0);
             return from_candid_vec_n20(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getSentFriendRequests(): Promise<Array<Principal>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSentFriendRequests();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSentFriendRequests();
+            return result;
         }
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
@@ -521,6 +619,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.isUsernameAvailable(arg0);
+            return result;
+        }
+    }
+    async likePost(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.likePost(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.likePost(arg0);
             return result;
         }
     }

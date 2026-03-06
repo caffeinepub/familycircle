@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Principal } from "@icp-sdk/core/principal";
-import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Clock,
@@ -27,37 +26,13 @@ import {
   useGetAcceptedFriends,
   useGetCallerUserProfile,
   useGetPendingFriendRequests,
+  useGetPrincipalByUsername,
   useGetProfileByUsername,
   useGetProfilePosts,
+  useGetSentFriendRequests,
   useGetUserProfile,
   useSendFriendRequest,
 } from "../hooks/useQueries";
-
-// ------ Helpers ------
-
-function getPrincipalFromCache(
-  queryClient: ReturnType<typeof useQueryClient>,
-  username: string,
-): Principal | null {
-  const queries = queryClient.getQueriesData<UserProfile | null>({
-    queryKey: ["userProfile"],
-  });
-  for (const [key, profile] of queries) {
-    if (profile?.username === username) {
-      const principalStr = (key as string[])[1];
-      if (principalStr) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { Principal: P } = require("@icp-sdk/core/principal");
-          return P.fromText(principalStr) as Principal;
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
-  return null;
-}
 
 // ------ ProfilePost item ------
 
@@ -78,6 +53,7 @@ function ProfilePost({
       authorProfile={authorProfile}
       isOwner={isOwner}
       index={index}
+      currentUserPrincipal={currentUserPrincipal}
     />
   );
 }
@@ -140,23 +116,32 @@ function FriendActions({
   friends: Principal[] | undefined;
   pendingRequests: Principal[] | undefined;
 }) {
-  const queryClient = useQueryClient();
   const sendFriend = useSendFriendRequest();
   const acceptFriend = useAcceptFriendRequest();
   const declineFriend = useDeclineFriendRequest();
   const [localSent, setLocalSent] = useState(false);
 
-  // Resolve principals from cache
-  const targetPrincipal = getPrincipalFromCache(queryClient, username);
+  // Resolve principal via backend lookup
+  const { data: targetPrincipal } = useGetPrincipalByUsername(username);
+
+  // Fetch sent requests to check if we already sent a request to this user
+  const { data: sentRequests } = useGetSentFriendRequests();
 
   const isFriend =
     targetPrincipal && friends
       ? friends.some((f) => f.toString() === targetPrincipal.toString())
       : false;
 
+  // Received request from this user (they sent us a request)
   const isPendingRequest =
     targetPrincipal && pendingRequests
       ? pendingRequests.some((f) => f.toString() === targetPrincipal.toString())
+      : false;
+
+  // We already sent a request to this user (authoritative backend check)
+  const isSentRequest =
+    targetPrincipal && sentRequests
+      ? sentRequests.some((f) => f.toString() === targetPrincipal.toString())
       : false;
 
   if (isFriend) {
@@ -217,7 +202,8 @@ function FriendActions({
     );
   }
 
-  if (localSent) {
+  // Authoritative: we already sent a request (from backend), or local optimistic state
+  if (isSentRequest || localSent) {
     return (
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground py-1.5 px-3 bg-muted rounded-full border border-border">
         <Clock className="h-4 w-4" />
@@ -283,7 +269,6 @@ export function ProfilePage() {
   const username = params.username ?? "";
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
-  const queryClient = useQueryClient();
 
   const { data: targetProfile, isLoading: profileLoading } =
     useGetProfileByUsername(username);
@@ -294,8 +279,9 @@ export function ProfilePage() {
   const currentUserPrincipal = identity?.getPrincipal().toString();
   const isSelf = currentProfile?.username === username;
 
-  // Determine if viewer can see posts
-  const targetPrincipal = getPrincipalFromCache(queryClient, username);
+  const { data: targetPrincipal } = useGetPrincipalByUsername(
+    !isSelf ? username : undefined,
+  );
 
   const isFriendWithTarget =
     isSelf ||

@@ -10,6 +10,13 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Comment {
+  'id' : bigint,
+  'createdAt' : bigint,
+  'text' : string,
+  'author' : Principal,
+  'postId' : bigint,
+}
 export type ExternalBlob = Uint8Array;
 export type MediaType = { 'video' : null } |
   { 'photo' : null };
@@ -72,23 +79,30 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'acceptFriendRequest' : ActorMethod<[Principal], undefined>,
+  'addComment' : ActorMethod<[bigint, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createPost' : ActorMethod<[string, ExternalBlob, MediaType], bigint>,
   'declineFriendRequest' : ActorMethod<[Principal], undefined>,
+  'deleteComment' : ActorMethod<[bigint, bigint], undefined>,
   'deletePost' : ActorMethod<[bigint], undefined>,
   'editPost' : ActorMethod<[bigint, string], undefined>,
   'getAcceptedFriends' : ActorMethod<[], Array<Principal>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getComments' : ActorMethod<[bigint], Array<Comment>>,
+  'getLikes' : ActorMethod<[bigint], Array<Principal>>,
   'getMainFeed' : ActorMethod<[], Array<Post>>,
   'getNotifications' : ActorMethod<[], Array<Notification>>,
   'getPendingFriendRequests' : ActorMethod<[], Array<Principal>>,
   'getPostById' : ActorMethod<[bigint], Post>,
+  'getPrincipalByUsername' : ActorMethod<[string], [] | [Principal]>,
   'getProfileByUsername' : ActorMethod<[string], [] | [UserProfile]>,
   'getProfilePosts' : ActorMethod<[Principal], Array<Post>>,
+  'getSentFriendRequests' : ActorMethod<[], Array<Principal>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isUsernameAvailable' : ActorMethod<[string], boolean>,
+  'likePost' : ActorMethod<[bigint], undefined>,
   'markAllNotificationsAsRead' : ActorMethod<[], undefined>,
   'register' : ActorMethod<[string, string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,

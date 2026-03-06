@@ -1,12 +1,13 @@
 import type { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Notification, Post, UserProfile } from "../backend";
+import type { Comment, Notification, Post, UserProfile } from "../backend";
 import { MediaType } from "../backend";
 import type { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
 
 // Re-export for convenience
 export { MediaType };
+export type { Comment };
 
 // ─── Profile Queries ────────────────────────────────────────────────────────
 
@@ -51,6 +52,19 @@ export function useGetProfileByUsername(username: string | undefined) {
       return actor.getProfileByUsername(username);
     },
     enabled: !!actor && !actorFetching && !!username,
+  });
+}
+
+export function useGetPrincipalByUsername(username: string | undefined) {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<Principal | null>({
+    queryKey: ["principalByUsername", username],
+    queryFn: async () => {
+      if (!actor || !username) return null;
+      return actor.getPrincipalByUsername(username);
+    },
+    enabled: !!actor && !actorFetching && !!username,
+    staleTime: 60_000,
   });
 }
 
@@ -105,6 +119,86 @@ export function useGetPostById(id: bigint | undefined) {
   });
 }
 
+// ─── Likes & Comments Queries ────────────────────────────────────────────────
+
+export function useGetLikes(postId: bigint | undefined) {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<Principal[]>({
+    queryKey: ["likes", postId?.toString()],
+    queryFn: async () => {
+      if (!actor || postId === undefined) return [];
+      return actor.getLikes(postId);
+    },
+    enabled: !!actor && !actorFetching && postId !== undefined,
+    staleTime: 15_000,
+  });
+}
+
+export function useGetComments(postId: bigint | undefined) {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<Comment[]>({
+    queryKey: ["comments", postId?.toString()],
+    queryFn: async () => {
+      if (!actor || postId === undefined) return [];
+      return actor.getComments(postId);
+    },
+    enabled: !!actor && !actorFetching && postId !== undefined,
+    staleTime: 15_000,
+  });
+}
+
+export function useLikePost() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (postId: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.likePost(postId);
+    },
+    onSuccess: (_data, postId) => {
+      queryClient.invalidateQueries({ queryKey: ["likes", postId.toString()] });
+    },
+  });
+}
+
+export function useAddComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ postId, text }: { postId: bigint; text: string }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addComment(postId, text);
+    },
+    onSuccess: (_data, { postId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["comments", postId.toString()],
+      });
+    },
+  });
+}
+
+export function useDeleteComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      postId,
+      commentId,
+    }: {
+      postId: bigint;
+      commentId: bigint;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.deleteComment(postId, commentId);
+    },
+    onSuccess: (_data, { postId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["comments", postId.toString()],
+      });
+    },
+  });
+}
+
 // ─── Friends Queries ─────────────────────────────────────────────────────────
 
 export function useGetAcceptedFriends() {
@@ -126,6 +220,19 @@ export function useGetPendingFriendRequests() {
     queryFn: async () => {
       if (!actor) return [];
       return actor.getPendingFriendRequests();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
+export function useGetSentFriendRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<Principal[]>({
+    queryKey: ["sentFriendRequests"],
+    queryFn: async () => {
+      if (!actor) return [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (actor as any).getSentFriendRequests() as Promise<Principal[]>;
     },
     enabled: !!actor && !actorFetching,
   });
@@ -267,6 +374,7 @@ export function useSendFriendRequest() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["acceptedFriends"] });
       queryClient.invalidateQueries({ queryKey: ["pendingFriendRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["sentFriendRequests"] });
     },
   });
 }

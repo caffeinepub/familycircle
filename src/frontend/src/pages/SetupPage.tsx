@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import { useDebounce } from "../hooks/useDebounce";
 import {
+  useGetCallerUserProfile,
   useIsUsernameAvailable,
   useRegister,
   useUpdateProfilePhoto,
@@ -21,6 +22,16 @@ import { getInitials } from "../utils/media";
 
 export function SetupPage() {
   const navigate = useNavigate();
+
+  // If the user already has a profile, redirect them straight to the feed
+  const { data: existingProfile, isFetched: profileFetched } =
+    useGetCallerUserProfile();
+
+  useEffect(() => {
+    if (profileFetched && existingProfile) {
+      navigate({ to: "/feed" });
+    }
+  }, [profileFetched, existingProfile, navigate]);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -80,7 +91,7 @@ export function SetupPage() {
         await updateProfilePhoto.mutateAsync(blob);
       }
 
-      toast.success("Profile created! Welcome to FamilyCircle 🎉");
+      toast.success("Profile created! Welcome to MyCircle 🎉");
       navigate({ to: "/feed" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Setup failed";
@@ -102,8 +113,8 @@ export function SetupPage() {
         <div className="bg-card rounded-3xl shadow-card-hover border border-border/50 p-8 card-grain">
           <div className="flex justify-center mb-2">
             <img
-              src="/assets/generated/familycircle-logo-transparent.dim_120x120.png"
-              alt="FamilyCircle"
+              src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
+              alt="MyCircle"
               className="h-12 w-12"
             />
           </div>
@@ -111,7 +122,7 @@ export function SetupPage() {
             Create your profile
           </h1>
           <p className="text-muted-foreground text-sm text-center mb-8">
-            Set up your FamilyCircle identity
+            Set up your MyCircle identity
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -234,7 +245,7 @@ export function SetupPage() {
                 id="bio"
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell your family a bit about yourself..."
+                placeholder="Tell your circle a bit about yourself..."
                 className="resize-none min-h-[80px]"
                 disabled={isSubmitting}
                 maxLength={200}

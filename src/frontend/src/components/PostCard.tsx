@@ -34,6 +34,7 @@ import type { Post, UserProfile } from "../backend";
 import { MediaType } from "../backend";
 import { useDeletePost, useEditPost } from "../hooks/useQueries";
 import { formatRelativeTime } from "../utils/time";
+import { PostLikesComments } from "./PostLikesComments";
 import { UserAvatar } from "./UserAvatar";
 
 interface PostCardProps {
@@ -41,6 +42,9 @@ interface PostCardProps {
   authorProfile: UserProfile | null | undefined;
   isOwner: boolean;
   index?: number;
+  currentUserPrincipal?: string;
+  /** When true, comments are always expanded (PostPage single-post view) */
+  defaultCommentsExpanded?: boolean;
 }
 
 export function PostCard({
@@ -48,6 +52,8 @@ export function PostCard({
   authorProfile,
   isOwner,
   index = 0,
+  currentUserPrincipal,
+  defaultCommentsExpanded = false,
 }: PostCardProps) {
   const [editing, setEditing] = useState(false);
   const [editCaption, setEditCaption] = useState(post.caption);
@@ -230,6 +236,14 @@ export function PostCard({
             )
           )}
         </div>
+
+        {/* Likes and Comments */}
+        <PostLikesComments
+          postId={post.id}
+          currentUserPrincipal={currentUserPrincipal}
+          defaultExpanded={defaultCommentsExpanded}
+          postIndex={index + 1}
+        />
       </motion.article>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

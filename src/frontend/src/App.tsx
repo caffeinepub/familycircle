@@ -51,8 +51,8 @@ function IndexPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/assets/generated/familycircle-logo-transparent.dim_120x120.png"
-            alt="FamilyCircle"
+            src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
+            alt="MyCircle"
             className="h-10 w-10 animate-pulse"
           />
           <p className="text-sm text-muted-foreground">Loading...</p>

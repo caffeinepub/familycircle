@@ -27,7 +27,9 @@ import {
   useDeclineFriendRequest,
   useGetAcceptedFriends,
   useGetPendingFriendRequests,
+  useGetPrincipalByUsername,
   useGetProfileByUsername,
+  useGetSentFriendRequests,
   useGetUserProfile,
   useSendFriendRequest,
 } from "../hooks/useQueries";
@@ -181,6 +183,59 @@ function FriendRow({ principal }: { principal: Principal }) {
   );
 }
 
+// ------ Individual sent request row ------
+
+function SentRequestRow({ principal }: { principal: Principal }) {
+  const { data: profile, isLoading } = useGetUserProfile(principal);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 py-3">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-40" />
+        </div>
+        <Skeleton className="h-6 w-24 rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="flex items-center gap-3 py-3"
+    >
+      <UserAvatar profile={profile} size="md" />
+      <div className="flex-1 min-w-0">
+        {profile ? (
+          <Link
+            to="/profile/$username"
+            params={{ username: profile.username }}
+            className="font-display font-semibold text-sm text-foreground hover:text-primary transition-colors"
+          >
+            @{profile.username}
+          </Link>
+        ) : (
+          <p className="text-xs text-muted-foreground font-mono">
+            {principal.toString().slice(0, 12)}...
+          </p>
+        )}
+        {profile?.bio && (
+          <p className="text-xs text-muted-foreground truncate">
+            {profile.bio}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1 px-2.5 bg-muted rounded-full border border-border/50 flex-shrink-0">
+        <Clock className="h-3 w-3" />
+        Waiting for response
+      </div>
+    </motion.div>
+  );
+}
+
 // ------ Search result add friend button ------
 
 function AddFriendButton({
@@ -191,25 +246,37 @@ function AddFriendButton({
   onSent: () => void;
 }) {
   const sendFriend = useSendFriendRequest();
+  const { data: targetPrincipal, isLoading: principalLoading } =
+    useGetPrincipalByUsername(profile.username);
 
-  const handleSend = () => {
-    // The backend requires Principal, not username.
-    // We inform the user to find the person in the feed first to resolve their principal.
-    toast.info(
-      `To add @${profile.username}, find one of their posts in the feed and visit their profile from there.`,
-    );
-    void profile; // used in message above
-    void onSent;
+  const handleSend = async () => {
+    if (!targetPrincipal) {
+      toast.error("Could not resolve user. Please try again.");
+      return;
+    }
+    try {
+      await sendFriend.mutateAsync(targetPrincipal);
+      toast.success(`Friend request sent to @${profile.username}!`);
+      onSent();
+    } catch {
+      toast.error(
+        "Failed to send friend request. You may already have a pending request.",
+      );
+    }
   };
 
   return (
     <Button
       size="sm"
       onClick={handleSend}
-      disabled={sendFriend.isPending}
+      disabled={sendFriend.isPending || principalLoading || !targetPrincipal}
       className="gap-1.5 h-8"
     >
-      <UserPlus className="h-3.5 w-3.5" />
+      {sendFriend.isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <UserPlus className="h-3.5 w-3.5" />
+      )}
       Add Friend
     </Button>
   );
@@ -299,9 +366,12 @@ function FindFriends() {
 export function FriendsPage() {
   const { data: pendingRequests, isLoading: pendingLoading } =
     useGetPendingFriendRequests();
+  const { data: sentRequests, isLoading: sentLoading } =
+    useGetSentFriendRequests();
   const { data: friends, isLoading: friendsLoading } = useGetAcceptedFriends();
 
   const pendingCount = pendingRequests?.length ?? 0;
+  const sentCount = sentRequests?.length ?? 0;
   const friendsCount = friends?.length ?? 0;
 
   return (
@@ -314,7 +384,7 @@ export function FriendsPage() {
             Friends
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage your family circle
+            Manage your circle
           </p>
         </div>
 
@@ -326,6 +396,48 @@ export function FriendsPage() {
               Find Friends
             </h2>
             <FindFriends />
+          </section>
+
+          <Separator />
+
+          {/* Sent Requests */}
+          <section>
+            <h2 className="font-display font-semibold text-base text-foreground mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Sent Requests
+              {sentCount > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {sentCount}
+                </Badge>
+              )}
+            </h2>
+
+            {sentLoading ? (
+              <div className="space-y-1">
+                {PENDING_SKELETON_KEYS.map((key) => (
+                  <div key={key} className="flex items-center gap-3 py-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-36" />
+                    </div>
+                    <Skeleton className="h-6 w-28 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            ) : sentRequests && sentRequests.length > 0 ? (
+              <div className="divide-y divide-border/40">
+                {sentRequests.map((p) => (
+                  <SentRequestRow key={p.toString()} principal={p} />
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No outgoing friend requests
+                </p>
+              </div>
+            )}
           </section>
 
           <Separator />

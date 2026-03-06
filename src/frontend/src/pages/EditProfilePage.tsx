@@ -182,7 +182,7 @@ export function EditProfilePage() {
                     id="bio"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell your family about yourself..."
+                    placeholder="Tell your circle about yourself..."
                     className="resize-none min-h-[100px]"
                     disabled={isSubmitting}
                     maxLength={200}

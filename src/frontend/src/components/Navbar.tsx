@@ -44,12 +44,12 @@ export function Navbar() {
           {/* Logo */}
           <Link to="/feed" className="flex items-center gap-2 flex-shrink-0">
             <img
-              src="/assets/generated/familycircle-logo-transparent.dim_120x120.png"
-              alt="FamilyCircle"
+              src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
+              alt="MyCircle"
               className="h-7 w-7"
             />
             <span className="font-display font-bold text-lg text-foreground hidden sm:block">
-              FamilyCircle
+              MyCircle
             </span>
           </Link>
 

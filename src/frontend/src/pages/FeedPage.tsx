@@ -34,6 +34,7 @@ function FeedPost({
       authorProfile={authorProfile}
       isOwner={isOwner}
       index={index}
+      currentUserPrincipal={currentUserPrincipal}
     />
   );
 }

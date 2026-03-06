@@ -141,6 +141,8 @@ export function PostPage() {
               authorProfile={authorProfile}
               isOwner={isOwner}
               index={0}
+              currentUserPrincipal={currentUserPrincipal}
+              defaultCommentsExpanded
             />
           </motion.div>
         )}

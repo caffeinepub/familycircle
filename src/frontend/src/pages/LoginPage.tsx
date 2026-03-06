@@ -60,8 +60,8 @@ export function LoginPage() {
         <div className="bg-card rounded-3xl shadow-card-hover border border-border/50 p-8 text-center card-grain">
           <div className="flex justify-center mb-6">
             <img
-              src="/assets/generated/familycircle-logo-transparent.dim_120x120.png"
-              alt="FamilyCircle"
+              src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
+              alt="MyCircle"
               className="h-16 w-16"
             />
           </div>
@@ -70,7 +70,7 @@ export function LoginPage() {
             Welcome back
           </h1>
           <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
-            Sign in to FamilyCircle to see posts from your friends and family.
+            Sign in to MyCircle to see posts from your friends and family.
           </p>
 
           {isLoginError && (
