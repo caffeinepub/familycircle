@@ -14,7 +14,9 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -115,7 +117,7 @@ actor {
     if (profile == null) { Runtime.trap("Failed to create user profile") };
     
     // Assign user role after successful registration
-    AccessControl.assignRole(accessControlState, caller, caller, #user);
+    accessControlState.userRoles.add(caller, #user);
   };
 
   func createUserProfile(p : Principal, username : Text, bio : Text, profilePhoto : ?Storage.ExternalBlob) : ?UserProfile {
@@ -215,10 +217,7 @@ actor {
     };
   };
 
-  public query ({ caller }) func isUsernameAvailable(username : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can check username availability");
-    };
+  public query func isUsernameAvailable(username : Text) : async Bool {
     isUsernameAvailableInternal(username);
   };
 
