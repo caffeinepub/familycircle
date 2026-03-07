@@ -180,14 +180,11 @@ export function PostCard({
             />
           </div>
         ) : (
-          <div
-            className="media-container w-full bg-muted"
-            style={{ aspectRatio: "4/5" }}
-          >
+          <div className="media-container w-full bg-muted">
             <img
               src={mediaUrl}
               alt={post.caption || "Post image"}
-              className="w-full h-full object-cover"
+              className="w-full h-auto max-h-[720px] object-contain"
               loading="lazy"
             />
           </div>
