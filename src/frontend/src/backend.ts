@@ -126,6 +126,7 @@ export interface UserProfile {
     username: string;
     createdAt: bigint;
     profilePhoto?: ExternalBlob;
+    coverPhoto?: ExternalBlob;
 }
 export interface _CaffeineStorageRefillResult {
     success?: boolean;
@@ -180,9 +181,11 @@ export interface backendInterface {
     likePost(postId: bigint): Promise<void>;
     markAllNotificationsAsRead(): Promise<void>;
     register(username: string, bio: string): Promise<void>;
+    removeFriend(friend: Principal): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     sendFriendRequest(friend: Principal): Promise<void>;
     updateBio(bio: string): Promise<void>;
+    updateCoverPhoto(photo: ExternalBlob | null): Promise<void>;
     updateProfilePhoto(photo: ExternalBlob | null): Promise<void>;
 }
 import type { ExternalBlob as _ExternalBlob, MediaType as _MediaType, Notification as _Notification, NotificationType as _NotificationType, Post as _Post, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
@@ -664,6 +667,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async removeFriend(arg0: Principal): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeFriend(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeFriend(arg0);
+            return result;
+        }
+    }
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
         if (this.processError) {
             try {
@@ -703,6 +720,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateBio(arg0);
+            return result;
+        }
+    }
+    async updateCoverPhoto(arg0: ExternalBlob | null): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCoverPhoto(await to_candid_opt_n34(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCoverPhoto(await to_candid_opt_n34(this._uploadFile, this._downloadFile, arg0));
             return result;
         }
     }
@@ -768,17 +799,20 @@ async function from_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promi
     username: string;
     createdAt: bigint;
     profilePhoto: [] | [_ExternalBlob];
+    coverPhoto: [] | [_ExternalBlob];
 }): Promise<{
     bio: string;
     username: string;
     createdAt: bigint;
     profilePhoto?: ExternalBlob;
+    coverPhoto?: ExternalBlob;
 }> {
     return {
         bio: value.bio,
         username: value.username,
         createdAt: value.createdAt,
-        profilePhoto: record_opt_to_undefined(await from_candid_opt_n16(_uploadFile, _downloadFile, value.profilePhoto))
+        profilePhoto: record_opt_to_undefined(await from_candid_opt_n16(_uploadFile, _downloadFile, value.profilePhoto)),
+        coverPhoto: record_opt_to_undefined(await from_candid_opt_n16(_uploadFile, _downloadFile, value.coverPhoto))
     };
 }
 async function from_candid_record_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
@@ -913,17 +947,20 @@ async function to_candid_record_n33(_uploadFile: (file: ExternalBlob) => Promise
     username: string;
     createdAt: bigint;
     profilePhoto?: ExternalBlob;
+    coverPhoto?: ExternalBlob;
 }): Promise<{
     bio: string;
     username: string;
     createdAt: bigint;
     profilePhoto: [] | [_ExternalBlob];
+    coverPhoto: [] | [_ExternalBlob];
 }> {
     return {
         bio: value.bio,
         username: value.username,
         createdAt: value.createdAt,
-        profilePhoto: value.profilePhoto ? candid_some(await to_candid_ExternalBlob_n10(_uploadFile, _downloadFile, value.profilePhoto)) : candid_none()
+        profilePhoto: value.profilePhoto ? candid_some(await to_candid_ExternalBlob_n10(_uploadFile, _downloadFile, value.profilePhoto)) : candid_none(),
+        coverPhoto: value.coverPhoto ? candid_some(await to_candid_ExternalBlob_n10(_uploadFile, _downloadFile, value.coverPhoto)) : candid_none()
     };
 }
 function to_candid_variant_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: MediaType): {

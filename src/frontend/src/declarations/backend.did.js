@@ -34,6 +34,7 @@ export const UserProfile = IDL.Record({
   'username' : IDL.Text,
   'createdAt' : IDL.Int,
   'profilePhoto' : IDL.Opt(ExternalBlob),
+  'coverPhoto' : IDL.Opt(ExternalBlob),
 });
 export const Comment = IDL.Record({
   'id' : IDL.Nat,
@@ -137,9 +138,11 @@ export const idlService = IDL.Service({
   'likePost' : IDL.Func([IDL.Nat64], [], []),
   'markAllNotificationsAsRead' : IDL.Func([], [], []),
   'register' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'removeFriend' : IDL.Func([IDL.Principal], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'sendFriendRequest' : IDL.Func([IDL.Principal], [], []),
   'updateBio' : IDL.Func([IDL.Text], [], []),
+  'updateCoverPhoto' : IDL.Func([IDL.Opt(ExternalBlob)], [], []),
   'updateProfilePhoto' : IDL.Func([IDL.Opt(ExternalBlob)], [], []),
 });
 
@@ -169,6 +172,7 @@ export const idlFactory = ({ IDL }) => {
     'username' : IDL.Text,
     'createdAt' : IDL.Int,
     'profilePhoto' : IDL.Opt(ExternalBlob),
+    'coverPhoto' : IDL.Opt(ExternalBlob),
   });
   const Comment = IDL.Record({
     'id' : IDL.Nat,
@@ -276,9 +280,11 @@ export const idlFactory = ({ IDL }) => {
     'likePost' : IDL.Func([IDL.Nat64], [], []),
     'markAllNotificationsAsRead' : IDL.Func([], [], []),
     'register' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'removeFriend' : IDL.Func([IDL.Principal], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'sendFriendRequest' : IDL.Func([IDL.Principal], [], []),
     'updateBio' : IDL.Func([IDL.Text], [], []),
+    'updateCoverPhoto' : IDL.Func([IDL.Opt(ExternalBlob)], [], []),
     'updateProfilePhoto' : IDL.Func([IDL.Opt(ExternalBlob)], [], []),
   });
 };

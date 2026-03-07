@@ -1,68 +1,43 @@
 import Map "mo:core/Map";
-import List "mo:core/List";
 import Principal "mo:core/Principal";
-import Nat64 "mo:core/Nat64";
 import Storage "blob-storage/Storage";
-import AccessControl "authorization/access-control";
 
 module {
-  type FriendshipStatus = {
-    #pending;
-    #accepted;
-    #declined;
-  };
-
-  type MediaType = {
-    #photo;
-    #video;
-  };
-
-  type NotificationType = {
-    #friendRequestReceived;
-    #friendRequestAccepted;
-    #newPostFromFriend;
-  };
-
-  type UserProfile = {
+  // Old UserProfile definition without coverPhoto
+  type OldUserProfile = {
     username : Text;
     profilePhoto : ?Storage.ExternalBlob;
     bio : Text;
     createdAt : Int;
   };
 
-  type Post = {
-    id : Nat64;
-    owner : Principal;
-    caption : Text;
-    media : Storage.ExternalBlob;
-    mediaType : MediaType;
-    createdAt : Int;
-    updatedAt : Int;
-  };
-
-  type Notification = {
-    id : Nat;
-    user : Principal;
-    notificationType : NotificationType;
-    relatedUser : ?Principal;
-    postId : ?Nat64;
-    createdAt : Int;
-    read : Bool;
-  };
-
+  // Old actor type
   type OldActor = {
-    profiles : Map.Map<Principal, UserProfile>;
-    posts : Map.Map<Nat64, Post>;
-    nextPostId : Nat64;
-    friendships : Map.Map<Principal, Map.Map<Principal, FriendshipStatus>>;
-    notifications : Map.Map<Principal, List.List<Notification>>;
-    usernameToPrincipal : Map.Map<Text, Principal>;
-    accessControlState : AccessControl.AccessControlState;
+    profiles : Map.Map<Principal, OldUserProfile>;
   };
 
-  public type NewActor = OldActor;
+  // New UserProfile definition with coverPhoto
+  type NewUserProfile = {
+    username : Text;
+    profilePhoto : ?Storage.ExternalBlob;
+    bio : Text;
+    createdAt : Int;
+    coverPhoto : ?Storage.ExternalBlob;
+  };
 
+  // New actor type
+  type NewActor = {
+    profiles : Map.Map<Principal, NewUserProfile>;
+  };
+
+  // Migration function called by the main actor via the with-clause
   public func run(old : OldActor) : NewActor {
-    old;
+    let newProfiles = old.profiles.map<Principal, OldUserProfile, NewUserProfile>(
+      func(_, oldProfile) {
+        { oldProfile with coverPhoto = null }; // Add coverPhoto field with default value
+      }
+    );
+
+    { profiles = newProfiles };
   };
 };

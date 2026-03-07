@@ -46,6 +46,7 @@ export interface UserProfile {
   'username' : string,
   'createdAt' : bigint,
   'profilePhoto' : [] | [ExternalBlob],
+  'coverPhoto' : [] | [ExternalBlob],
 }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -105,9 +106,11 @@ export interface _SERVICE {
   'likePost' : ActorMethod<[bigint], undefined>,
   'markAllNotificationsAsRead' : ActorMethod<[], undefined>,
   'register' : ActorMethod<[string, string], undefined>,
+  'removeFriend' : ActorMethod<[Principal], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'sendFriendRequest' : ActorMethod<[Principal], undefined>,
   'updateBio' : ActorMethod<[string], undefined>,
+  'updateCoverPhoto' : ActorMethod<[[] | [ExternalBlob]], undefined>,
   'updateProfilePhoto' : ActorMethod<[[] | [ExternalBlob]], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;

@@ -421,3 +421,34 @@ export function useMarkAllNotificationsRead() {
     },
   });
 }
+
+export function useRemoveFriend() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (friend: Principal) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.removeFriend(friend);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acceptedFriends"] });
+      queryClient.invalidateQueries({ queryKey: ["pendingFriendRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["sentFriendRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["mainFeed"] });
+    },
+  });
+}
+
+export function useUpdateCoverPhoto() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (photo: ExternalBlob | null) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.updateCoverPhoto(photo);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    },
+  });
+}

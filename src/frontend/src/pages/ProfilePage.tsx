@@ -1,7 +1,18 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Principal } from "@icp-sdk/core/principal";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   Clock,
   Edit,
@@ -9,13 +20,14 @@ import {
   Loader2,
   Lock,
   UserCheck,
+  UserMinus,
   UserPlus,
   UserX,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { Post, UserProfile } from "../backend";
+import type { Post } from "../backend";
 import { Navbar } from "../components/Navbar";
 import { PostCard } from "../components/PostCard";
 import { UserAvatar } from "../components/UserAvatar";
@@ -31,6 +43,7 @@ import {
   useGetProfilePosts,
   useGetSentFriendRequests,
   useGetUserProfile,
+  useRemoveFriend,
   useSendFriendRequest,
 } from "../hooks/useQueries";
 
@@ -144,11 +157,61 @@ function FriendActions({
       ? sentRequests.some((f) => f.toString() === targetPrincipal.toString())
       : false;
 
+  const removeFriend = useRemoveFriend();
+
   if (isFriend) {
     return (
-      <div className="flex items-center gap-1.5 text-sm text-green-700 font-semibold py-1.5 px-3 bg-green-50 rounded-full border border-green-200">
-        <UserCheck className="h-4 w-4" />
-        Friends
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 text-sm text-green-700 font-semibold py-1.5 px-3 bg-green-50 rounded-full border border-green-200">
+          <UserCheck className="h-4 w-4" />
+          Friends
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              data-ocid="profile.unfriend_button"
+            >
+              <UserMinus className="h-3.5 w-3.5" />
+              Unfriend
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent data-ocid="profile.unfriend_dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unfriend @{username}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to unfriend @{username}? They will no
+                longer be able to see your posts.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-ocid="profile.unfriend_cancel_button">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                data-ocid="profile.unfriend_confirm_button"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  if (!targetPrincipal) return;
+                  try {
+                    await removeFriend.mutateAsync(targetPrincipal);
+                    toast.success(`Unfriended @${username}`);
+                  } catch {
+                    toast.error("Failed to unfriend. Please try again.");
+                  }
+                }}
+                disabled={removeFriend.isPending}
+              >
+                {removeFriend.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                ) : null}
+                Unfriend
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -317,15 +380,25 @@ export function ProfilePage() {
           >
             {/* Profile header */}
             <div className="mb-8 rounded-2xl overflow-hidden border border-border/50 shadow-card bg-card card-grain">
-              {/* Cover gradient band */}
-              <div
-                className="h-24 w-full"
-                style={{
-                  background:
-                    "linear-gradient(135deg, oklch(0.88 0.06 75) 0%, oklch(0.93 0.04 55) 50%, oklch(0.85 0.08 42) 100%)",
-                }}
-                aria-hidden="true"
-              />
+              {/* Cover photo / gradient band */}
+              {targetProfile.coverPhoto ? (
+                <div className="h-36 w-full overflow-hidden">
+                  <img
+                    src={targetProfile.coverPhoto.getDirectURL()}
+                    alt="Cover banner"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="h-36 w-full"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.88 0.06 75) 0%, oklch(0.93 0.04 55) 50%, oklch(0.85 0.08 42) 100%)",
+                  }}
+                  aria-hidden="true"
+                />
+              )}
               <div className="px-5 pb-5">
                 {/* Avatar overlapping the cover */}
                 <div className="flex items-end gap-4 -mt-10 mb-3">

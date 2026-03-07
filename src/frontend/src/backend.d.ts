@@ -44,6 +44,7 @@ export interface UserProfile {
     username: string;
     createdAt: bigint;
     profilePhoto?: ExternalBlob;
+    coverPhoto?: ExternalBlob;
 }
 export enum MediaType {
     video = "video",
@@ -87,8 +88,10 @@ export interface backendInterface {
     likePost(postId: bigint): Promise<void>;
     markAllNotificationsAsRead(): Promise<void>;
     register(username: string, bio: string): Promise<void>;
+    removeFriend(friend: Principal): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     sendFriendRequest(friend: Principal): Promise<void>;
     updateBio(bio: string): Promise<void>;
+    updateCoverPhoto(photo: ExternalBlob | null): Promise<void>;
     updateProfilePhoto(photo: ExternalBlob | null): Promise<void>;
 }

@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Camera, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, Camera, ImageIcon, Loader2, Upload } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { UserAvatar } from "../components/UserAvatar";
 import {
   useGetCallerUserProfile,
   useUpdateBio,
+  useUpdateCoverPhoto,
   useUpdateProfilePhoto,
 } from "../hooks/useQueries";
 import { fileToUint8Array } from "../utils/media";
@@ -22,12 +23,19 @@ export function EditProfilePage() {
   const { data: profile, isLoading } = useGetCallerUserProfile();
   const updateBio = useUpdateBio();
   const updatePhoto = useUpdateProfilePhoto();
+  const updateCoverPhoto = useUpdateCoverPhoto();
 
   const [bio, setBio] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [coverPhotoFile, setCoverPhotoFile] = useState<File | null>(null);
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(
+    null,
+  );
+  const [coverUploadProgress, setCoverUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize bio from profile
   useEffect(() => {
@@ -54,6 +62,24 @@ export function EditProfilePage() {
     };
   }, [photoPreview]);
 
+  const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    setCoverPhotoFile(file);
+    const url = URL.createObjectURL(file);
+    setCoverPhotoPreview(url);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (coverPhotoPreview) URL.revokeObjectURL(coverPhotoPreview);
+    };
+  }, [coverPhotoPreview]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const promises: Promise<void>[] = [];
@@ -76,6 +102,20 @@ export function EditProfilePage() {
       );
     }
 
+    if (coverPhotoFile) {
+      promises.push(
+        (async () => {
+          const bytes = await fileToUint8Array(coverPhotoFile);
+          const blob = ExternalBlob.fromBytes(bytes).withUploadProgress(
+            (pct) => {
+              setCoverUploadProgress(pct);
+            },
+          );
+          await updateCoverPhoto.mutateAsync(blob);
+        })(),
+      );
+    }
+
     try {
       await Promise.all(promises);
       toast.success("Profile updated!");
@@ -86,10 +126,12 @@ export function EditProfilePage() {
     } catch {
       toast.error("Failed to update profile");
       setUploadProgress(0);
+      setCoverUploadProgress(0);
     }
   };
 
-  const isSubmitting = updateBio.isPending || updatePhoto.isPending;
+  const isSubmitting =
+    updateBio.isPending || updatePhoto.isPending || updateCoverPhoto.isPending;
 
   // Create a modified profile for preview
   const previewProfile = profile
@@ -161,6 +203,83 @@ export function EditProfilePage() {
                     {photoFile ? "Change photo" : "Change profile photo"}
                   </button>
                 </div>
+
+                {/* Cover Photo */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Cover Photo
+                  </Label>
+                  <button
+                    type="button"
+                    data-ocid="edit_profile.cover_photo_dropzone"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    className="relative w-full rounded-xl overflow-hidden border-2 border-dashed border-border hover:border-primary/60 transition-colors cursor-pointer text-left"
+                    style={{ aspectRatio: "3 / 1" }}
+                    aria-label="Upload cover banner"
+                  >
+                    {coverPhotoPreview ? (
+                      <img
+                        src={coverPhotoPreview}
+                        alt="Cover banner preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : profile?.coverPhoto ? (
+                      <img
+                        src={profile.coverPhoto.getDirectURL()}
+                        alt="Current cover banner"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex flex-col items-center justify-center gap-2"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, oklch(0.88 0.06 75) 0%, oklch(0.93 0.04 55) 50%, oklch(0.85 0.08 42) 100%)",
+                        }}
+                      >
+                        <ImageIcon className="h-6 w-6 text-muted-foreground/60" />
+                        <span className="text-xs text-muted-foreground/80 font-medium">
+                          Cover Photo
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                      <div className="bg-black/50 text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                        <Upload className="h-3 w-3" />
+                        Change Cover
+                      </div>
+                    </div>
+                  </button>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCoverPhotoChange}
+                    data-ocid="edit_profile.cover_photo_upload_button"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Upload className="h-3 w-3" />
+                    {coverPhotoFile
+                      ? "Change cover photo"
+                      : "Upload cover photo"}
+                  </button>
+                </div>
+
+                {/* Cover photo upload progress */}
+                {isSubmitting && coverUploadProgress > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading cover photo...</span>
+                      <span>{coverUploadProgress}%</span>
+                    </div>
+                    <Progress value={coverUploadProgress} className="h-1.5" />
+                  </div>
+                )}
 
                 {/* Username (read-only) */}
                 <div>

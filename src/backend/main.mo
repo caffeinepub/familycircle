@@ -16,9 +16,9 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
+import Migration "migration";
 
-
-
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -44,6 +44,7 @@ actor {
     profilePhoto : ?Storage.ExternalBlob;
     bio : Text;
     createdAt : Int;
+    coverPhoto : ?Storage.ExternalBlob;
   };
 
   type Friendship = {
@@ -130,7 +131,7 @@ actor {
   include MixinAuthorization(accessControlState);
 
   func pendingKey(recipient : Principal, sender : Principal) : Text {
-    recipient.toText() # "_" # sender.toText()
+    recipient.toText() # "_" # sender.toText();
   };
 
   // Friendship system - record who sent pending requests
@@ -147,6 +148,43 @@ actor {
     switch (pendingRequestSenders.get(pendingKey(other, principal))) {
       case (?_) { true };
       case (null) { false };
+    };
+  };
+
+  public shared ({ caller }) func removeFriend(friend : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can remove friends");
+    };
+    assertProfileExists(caller);
+    assertProfileExists(friend);
+    assertFriendshipStatus(caller, friend, #accepted);
+
+    // Remove caller's entry for this friend
+    switch (friendships.get(caller)) {
+      case (?userFriendships) {
+        let updatedFriendships = Map.empty<Principal, FriendshipStatus>();
+        for ((principal, status) in userFriendships.entries()) {
+          if (principal != friend) {
+            updatedFriendships.add(principal, status);
+          };
+        };
+        friendships.add(caller, updatedFriendships);
+      };
+      case (null) {};
+    };
+
+    // Remove friend's entry for caller
+    switch (friendships.get(friend)) {
+      case (?friendFriendships) {
+        let updatedFriendships = Map.empty<Principal, FriendshipStatus>();
+        for ((principal, status) in friendFriendships.entries()) {
+          if (principal != caller) {
+            updatedFriendships.add(principal, status);
+          };
+        };
+        friendships.add(friend, updatedFriendships);
+      };
+      case (null) {};
     };
   };
 
@@ -178,6 +216,7 @@ actor {
           bio;
           profilePhoto;
           createdAt = Time.now();
+          coverPhoto = null;
         };
 
         usernameToPrincipal.add(normalizedUsername, p);
@@ -201,6 +240,28 @@ actor {
           bio = profile.bio;
           profilePhoto = photo;
           createdAt = profile.createdAt;
+          coverPhoto = profile.coverPhoto;
+        };
+        profiles.add(caller, updatedProfile);
+      };
+      case (null) { Runtime.trap("Profile does not exist") };
+    };
+  };
+
+  public shared ({ caller }) func updateCoverPhoto(photo : ?Storage.ExternalBlob) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update cover photo");
+    };
+    assertProfileExists(caller);
+
+    switch (profiles.get(caller)) {
+      case (?profile) {
+        let updatedProfile : UserProfile = {
+          username = profile.username;
+          bio = profile.bio;
+          profilePhoto = profile.profilePhoto;
+          createdAt = profile.createdAt;
+          coverPhoto = photo;
         };
         profiles.add(caller, updatedProfile);
       };
@@ -221,6 +282,7 @@ actor {
           bio;
           profilePhoto = profile.profilePhoto;
           createdAt = profile.createdAt;
+          coverPhoto = profile.coverPhoto;
         };
         profiles.add(caller, updatedProfile);
       };
@@ -713,7 +775,7 @@ actor {
         let isDigit = codePoint >= 48 and codePoint <= 57;
         let isLowercase = codePoint >= 97 and codePoint <= 122;
         let isUppercase = codePoint >= 65 and codePoint <= 90;
-        isDigit or isLowercase or isUppercase
+        isDigit or isLowercase or isUppercase;
       }
     );
   };
