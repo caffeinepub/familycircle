@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "@tanstack/react-router";
+import { Lock, ShieldCheck, Zap } from "lucide-react";
 import { motion } from "motion/react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -209,6 +210,88 @@ export function LandingPage() {
             alt="Friends jumping on the beach"
             className="w-full object-cover h-64 sm:h-80"
           />
+        </motion.div>
+      </section>
+
+      {/* ICP Trust Section */}
+      <section className="max-w-5xl mx-auto px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="rounded-3xl border border-border/60 bg-card shadow-card overflow-hidden"
+        >
+          {/* Top bar */}
+          <div className="bg-primary/8 border-b border-border/40 px-6 py-4 flex items-center gap-3">
+            <span
+              className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse-dot"
+              aria-hidden="true"
+            />
+            <p className="font-display font-semibold text-sm text-foreground tracking-wide uppercase">
+              Built on the Internet Computer
+            </p>
+          </div>
+
+          <div className="px-6 py-6 sm:px-8 sm:py-8">
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-2xl mb-8">
+              MyCircle runs entirely on the{" "}
+              <a
+                href="https://internetcomputer.org"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary font-medium hover:underline underline-offset-2"
+              >
+                Internet Computer Protocol (ICP)
+              </a>{" "}
+              — a next-generation blockchain that hosts the full stack: backend,
+              frontend, and data. No cloud servers, no single point of failure.
+            </p>
+
+            <div className="grid sm:grid-cols-3 gap-4">
+              {[
+                {
+                  icon: ShieldCheck,
+                  label: "Tamperproof",
+                  desc: "Your data is stored on a decentralised network of nodes. No single party — including us — can alter or delete it.",
+                },
+                {
+                  icon: Zap,
+                  label: "Unstoppable",
+                  desc: "The app can't be taken offline, censored, or shut down. It runs as long as the Internet Computer does.",
+                },
+                {
+                  icon: Lock,
+                  label: "Secure",
+                  desc: "Cryptographic guarantees at every layer. Your identity and posts are protected by ICP's chain-key cryptography.",
+                },
+              ].map((item, i) => (
+                <motion.div
+                  key={item.label}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="flex flex-col gap-3 p-4 rounded-2xl bg-secondary/50 border border-border/40 group"
+                >
+                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/18 transition-colors duration-200">
+                    <item.icon
+                      className="h-4.5 w-4.5 text-primary"
+                      strokeWidth={1.75}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-sm text-foreground mb-1">
+                      {item.label}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </section>
 

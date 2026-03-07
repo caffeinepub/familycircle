@@ -39,8 +39,8 @@ const rootRoute = createRootRoute({
 
 // Maximum milliseconds to wait for profile load before proceeding anyway.
 // This prevents the loading screen from hanging forever if the backend
-// call stalls (e.g. _initializeAccessControlWithSecret hangs for regular users).
-const LOADING_TIMEOUT_MS = 6_000;
+// call stalls. Kept intentionally short so signed-in users aren't stuck.
+const LOADING_TIMEOUT_MS = 4_000;
 
 function IndexPage() {
   const { identity, isInitializing } = useInternetIdentity();
@@ -107,13 +107,16 @@ function IndexPage() {
     return <LandingPage />;
   }
 
-  // Has identity but no profile confirmed → new user, go to setup
-  // Also treat a timed-out load with no data as a new user (they can register)
-  if ((isFetched || timedOut) && !profile && !profileError) {
+  // Only route to setup when we definitively confirmed there is no profile:
+  // the query completed (isFetched), we did NOT time out, there is no data,
+  // and there is no error. This is the true "new user" signal.
+  // Never route to setup on a timeout alone — prefer feed for signed-in users
+  // so profile data can finish loading in the background.
+  if (isFetched && !timedOut && !profile && !profileError) {
     return <SetupPage />;
   }
 
-  // Has profile (or profile error) → go to feed
+  // Signed-in user: go to feed (profile loads asynchronously in Navbar/FeedPage)
   return <FeedPage />;
 }
 

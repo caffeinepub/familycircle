@@ -24,19 +24,21 @@ export function useGetCallerUserProfile() {
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching,
-    // Retry a couple of times with short delays to handle transient canister
-    // errors without blocking the loading screen for too long.
-    retry: 2,
-    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 3_000),
+    // Retry once with a short fixed delay. A single retry handles transient
+    // canister hiccups without blocking the loading screen for too long.
+    retry: 1,
+    retryDelay: () => 800,
     // Always re-fetch on mount so a fresh sign-in always gets the latest profile
     refetchOnMount: "always",
     // No stale time — always treat as potentially stale so it re-runs on demand
     staleTime: 0,
-    // Poll every 4 seconds when the actor is ready but profile hasn't loaded yet.
-    // This handles transient backend errors and retries without relying solely
-    // on React Query's built-in retry mechanism.
+    // Only poll when the user is authenticated and the actor is ready but
+    // profile hasn't loaded yet. Never poll on the landing page (no identity)
+    // or after a persistent error (prevents hammering a failing canister).
     refetchInterval: (query) => {
+      if (!identity) return false; // not signed in — no polling
       if (query.state.data) return false; // stop once we have data
+      if (query.state.status === "error") return false; // stop polling on error
       return 4_000;
     },
   });
