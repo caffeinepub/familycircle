@@ -26,6 +26,7 @@ export function LoginPage() {
     data: profile,
     isFetched: profileFetched,
     isLoading: profileLoading,
+    isError: profileError,
   } = useGetCallerUserProfile();
 
   // Get redirect param
@@ -46,7 +47,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (!identity) return;
-    if (!profileFetched && !timedOut) return;
+    if (!profileFetched && !timedOut && !profileError) return;
 
     if (profile) {
       // Has profile → go to intended destination or feed
@@ -59,11 +60,24 @@ export function LoginPage() {
       // Loading timed out without a confirmed fetch result — assume existing user
       // and send to feed rather than incorrectly routing to setup.
       navigate({ to: redirectTo ?? "/feed" });
+    } else if (profileError) {
+      // Profile query errored (actor init failed or role not assigned) — the user
+      // is likely an existing account.  Send them to feed; queries will retry once
+      // the actor resolves correctly.
+      navigate({ to: redirectTo ?? "/feed" });
     } else {
       // Profile explicitly fetched and confirmed absent → setup
       navigate({ to: "/setup" });
     }
-  }, [identity, profile, profileFetched, timedOut, navigate, redirectTo]);
+  }, [
+    identity,
+    profile,
+    profileFetched,
+    timedOut,
+    profileError,
+    navigate,
+    redirectTo,
+  ]);
 
   const handleLogin = () => {
     if (identity) {
@@ -110,12 +124,18 @@ export function LoginPage() {
             disabled={
               isLoggingIn ||
               isInitializing ||
-              (!!identity && (actorFetching || profileLoading) && !timedOut)
+              (!!identity &&
+                (actorFetching || profileLoading) &&
+                !timedOut &&
+                !profileError)
             }
           >
             {isLoggingIn ||
             isInitializing ||
-            (!!identity && (actorFetching || profileLoading) && !timedOut) ? (
+            (!!identity &&
+              (actorFetching || profileLoading) &&
+              !timedOut &&
+              !profileError) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing in...

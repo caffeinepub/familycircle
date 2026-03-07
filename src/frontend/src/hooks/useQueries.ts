@@ -4,6 +4,7 @@ import type { Comment, Notification, Post, UserProfile } from "../backend";
 import { MediaType } from "../backend";
 import type { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 // Re-export for convenience
 export { MediaType };
@@ -13,21 +14,49 @@ export type { Comment };
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
 
   const query = useQuery<UserProfile | null>({
-    queryKey: ["currentUserProfile"],
+    queryKey: ["currentUserProfile", identity?.getPrincipal().toString()],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    // Retry a couple of times with short delays to handle transient canister
+    // errors without blocking the loading screen for too long.
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 3_000),
+    // Always re-fetch on mount so a fresh sign-in always gets the latest profile
+    refetchOnMount: "always",
+    // No stale time — always treat as potentially stale so it re-runs on demand
+    staleTime: 0,
+    // Poll every 4 seconds when the actor is ready but profile hasn't loaded yet.
+    // This handles transient backend errors and retries without relying solely
+    // on React Query's built-in retry mechanism.
+    refetchInterval: (query) => {
+      if (query.state.data) return false; // stop once we have data
+      return 4_000;
+    },
   });
+
+  // Detect whether the actor query itself has permanently errored (all retries
+  // exhausted).  When this happens, actor stays null and isFetching = false.
+  // We surface this as `actorErrored` so callers can avoid waiting forever.
+  const actorQueryKey = ["actor", identity?.getPrincipal().toString()];
+  const actorQueryState = queryClient.getQueryState(actorQueryKey);
+  const actorErrored =
+    !actorFetching && !actor && actorQueryState?.status === "error";
 
   return {
     ...query,
     isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
+    // Consider the profile "fetched" if: the actor had data and query ran, OR
+    // the actor itself errored (in which case we treat it as a terminal state).
+    isFetched: (!!actor && query.isFetched) || actorErrored,
+    // Surface actor error alongside query error so callers can handle both
+    isError: query.isError || actorErrored,
   };
 }
 
@@ -40,6 +69,9 @@ export function useGetUserProfile(user: Principal | undefined) {
       return actor.getUserProfile(user);
     },
     enabled: !!actor && !actorFetching && !!user,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    staleTime: 30_000,
   });
 }
 
@@ -52,6 +84,10 @@ export function useGetProfileByUsername(username: string | undefined) {
       return actor.getProfileByUsername(username);
     },
     enabled: !!actor && !actorFetching && !!username,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 }
 

@@ -31,6 +31,7 @@ import type { Post } from "../backend";
 import { Navbar } from "../components/Navbar";
 import { PostCard } from "../components/PostCard";
 import { UserAvatar } from "../components/UserAvatar";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useAcceptFriendRequest,
@@ -333,8 +334,13 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
 
-  const { data: targetProfile, isLoading: profileLoading } =
+  const { isFetching: actorFetching } = useActor();
+  const { data: targetProfile, isLoading: profileQueryLoading } =
     useGetProfileByUsername(username);
+  // Show skeleton while the actor is still initialising OR while the profile query runs.
+  // If the actor has errored (null + not fetching), fall through to "User not found".
+  const profileLoading = actorFetching || profileQueryLoading;
+
   const { data: currentProfile } = useGetCallerUserProfile();
   const { data: friends } = useGetAcceptedFriends();
   const { data: pendingRequests } = useGetPendingFriendRequests();

@@ -8,12 +8,9 @@ import { CreatePostModal } from "../components/CreatePostModal";
 import { Navbar } from "../components/Navbar";
 import { PostCard } from "../components/PostCard";
 import { FeedSkeleton } from "../components/PostSkeleton";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import {
-  useGetCallerUserProfile,
-  useGetMainFeed,
-  useGetUserProfile,
-} from "../hooks/useQueries";
+import { useGetMainFeed, useGetUserProfile } from "../hooks/useQueries";
 
 // Individual post with resolved author
 function FeedPost({
@@ -42,7 +39,13 @@ function FeedPost({
 export function FeedPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const { identity } = useInternetIdentity();
-  const { data: feed, isLoading } = useGetMainFeed();
+  const { isFetching: actorFetching } = useActor();
+  const { data: feed, isLoading: feedLoading } = useGetMainFeed();
+
+  // Show loading skeleton while the actor is initialising or the feed is loading.
+  // If the actor has errored (null + not fetching), skip the skeleton to avoid
+  // blocking forever — the feed empty state will handle it gracefully.
+  const isLoading = actorFetching || feedLoading;
 
   const currentUserPrincipal = identity?.getPrincipal().toString();
 

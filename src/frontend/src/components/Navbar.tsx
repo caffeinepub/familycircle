@@ -22,7 +22,8 @@ export function Navbar() {
   const { clear, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: profile } = useGetCallerUserProfile();
+  const { data: profile, isLoading: profileLoading } =
+    useGetCallerUserProfile();
   const [createOpen, setCreateOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -99,7 +100,11 @@ export function Navbar() {
               <DropdownMenuContent align="end" className="w-48 rounded-xl">
                 <div className="px-3 py-2">
                   <p className="font-display font-semibold text-sm">
-                    {profile?.username ?? "Loading..."}
+                    {profileLoading && !profile ? (
+                      <span className="inline-block h-4 w-24 bg-muted animate-pulse rounded" />
+                    ) : (
+                      (profile?.username ?? "My Profile")
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {identity?.getPrincipal().toString().slice(0, 12)}...

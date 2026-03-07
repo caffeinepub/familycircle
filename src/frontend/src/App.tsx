@@ -6,7 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
 
@@ -37,11 +37,10 @@ const rootRoute = createRootRoute({
 
 // ------ Index Route (redirect based on auth state) ------
 
-// Maximum milliseconds to wait for actor initialisation before bypassing the
-// loading gate.  This prevents the app from freezing indefinitely when the
-// backend _initializeAccessControlWithSecret call retries on failure (e.g.
-// when CAFFEINE_ADMIN_TOKEN env var is not available in the canister).
-const ACTOR_INIT_TIMEOUT_MS = 6_000;
+// Maximum milliseconds to wait for profile load before proceeding anyway.
+// This prevents the loading screen from hanging forever if the backend
+// call stalls (e.g. _initializeAccessControlWithSecret hangs for regular users).
+const LOADING_TIMEOUT_MS = 6_000;
 
 function IndexPage() {
   const { identity, isInitializing } = useInternetIdentity();
@@ -49,26 +48,49 @@ function IndexPage() {
     data: profile,
     isLoading: profileLoading,
     isFetched,
+    isError: profileError,
   } = useGetCallerUserProfile();
 
-  // Safety valve: if loading takes too long (actor retry loop), stop waiting
-  // and route the user based on whether they have a stored identity.
+  // Escape hatch: if we have an identity and loading hasn't resolved within
+  // LOADING_TIMEOUT_MS, force-proceed so the user isn't stuck forever.
   const [timedOut, setTimedOut] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (!isInitializing && !profileLoading) return;
-    const id = window.setTimeout(
-      () => setTimedOut(true),
-      ACTOR_INIT_TIMEOUT_MS,
-    );
-    return () => window.clearTimeout(id);
-  }, [isInitializing, profileLoading]);
+    if (identity && profileLoading && !isFetched) {
+      // Start the timeout only when authenticated but still loading
+      if (!timerRef.current) {
+        timerRef.current = setTimeout(() => {
+          setTimedOut(true);
+        }, LOADING_TIMEOUT_MS);
+      }
+    } else {
+      // Loading resolved — clear any pending timer
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setTimedOut(false);
+    }
 
-  const isStillLoading = (isInitializing || profileLoading) && !timedOut;
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [identity, profileLoading, isFetched]);
 
-  // While initializing, show nothing (avoids flash)
+  // Show loading screen only while initialising auth or loading profile,
+  // BUT stop showing it if we've timed out (so the user isn't stuck).
+  const isStillLoading = !timedOut && (isInitializing || profileLoading);
+
   if (isStillLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div
+        className="min-h-screen bg-background flex items-center justify-center"
+        data-ocid="app.loading_state"
+      >
         <div className="flex flex-col items-center gap-3">
           <img
             src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
@@ -85,15 +107,13 @@ function IndexPage() {
     return <LandingPage />;
   }
 
-  // Only send to setup when profile was explicitly fetched and confirmed absent.
-  // If we timed out (actor init failure) we can't confirm absence, so fall through
-  // to FeedPage rather than incorrectly routing an existing user to setup.
-  if (isFetched && !profile && !timedOut) {
-    // Has identity but no profile → setup
+  // Has identity but no profile confirmed → new user, go to setup
+  // Also treat a timed-out load with no data as a new user (they can register)
+  if ((isFetched || timedOut) && !profile && !profileError) {
     return <SetupPage />;
   }
 
-  // Has profile (or timed out) → feed
+  // Has profile (or profile error) → go to feed
   return <FeedPage />;
 }
 
