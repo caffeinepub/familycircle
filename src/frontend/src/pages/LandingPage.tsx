@@ -57,7 +57,7 @@ const features = [
 ];
 
 export function LandingPage() {
-  const _navigate = useNavigate();
+  const navigate = useNavigate();
   const { login, isLoggingIn } = useInternetIdentity();
 
   const handleLogin = () => {
@@ -148,7 +148,7 @@ export function LandingPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={handleLogin}
+                  onClick={() => navigate({ to: "/login" })}
                   className="text-base px-8 h-12 rounded-full"
                 >
                   Sign in
@@ -205,8 +205,8 @@ export function LandingPage() {
           className="rounded-3xl overflow-hidden shadow-card-hover border border-border/30"
         >
           <img
-            src="/assets/generated/hero-landing.dim_1200x600.jpg"
-            alt="Shared memories"
+            src="/assets/uploads/IMG_0519-1.jpeg"
+            alt="Friends jumping on the beach"
             className="w-full object-cover h-64 sm:h-80"
           />
         </motion.div>

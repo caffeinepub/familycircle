@@ -26,13 +26,8 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      // Only call admin initialisation when a real token is present.
-      // Calling it with an empty string causes the backend to reject or hang,
-      // which prevents regular users from ever getting a working actor.
-      const adminToken = getSecretParameter("caffeineAdminToken");
-      if (adminToken) {
-        await actor._initializeAccessControlWithSecret(adminToken);
-      }
+      const adminToken = getSecretParameter("caffeineAdminToken") || "";
+      await actor._initializeAccessControlWithSecret(adminToken);
       return actor;
     },
     // Only refetch when identity changes

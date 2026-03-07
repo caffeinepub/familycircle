@@ -2,9 +2,13 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "../hooks/useQueries";
+
+// Safety valve: stop waiting after this many ms to avoid infinite loading
+const PROFILE_LOAD_TIMEOUT_MS = 8_000;
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -17,16 +21,32 @@ export function LoginPage() {
     identity,
     isInitializing,
   } = useInternetIdentity();
-  const { data: profile, isFetched: profileFetched } =
-    useGetCallerUserProfile();
+  const { isFetching: actorFetching } = useActor();
+  const {
+    data: profile,
+    isFetched: profileFetched,
+    isLoading: profileLoading,
+  } = useGetCallerUserProfile();
 
   // Get redirect param
   const search = useSearch({ strict: false }) as { redirect?: string };
   const redirectTo = search?.redirect;
 
+  // Safety valve: if loading hangs (e.g. actor init failure), stop waiting
+  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
     if (!identity) return;
-    if (!profileFetched) return;
+    if (profileFetched) return;
+    const id = window.setTimeout(
+      () => setTimedOut(true),
+      PROFILE_LOAD_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [identity, profileFetched]);
+
+  useEffect(() => {
+    if (!identity) return;
+    if (!profileFetched && !timedOut) return;
 
     if (profile) {
       // Has profile → go to intended destination or feed
@@ -35,11 +55,15 @@ export function LoginPage() {
       } else {
         navigate({ to: "/feed" });
       }
+    } else if (timedOut && !profileFetched) {
+      // Loading timed out without a confirmed fetch result — assume existing user
+      // and send to feed rather than incorrectly routing to setup.
+      navigate({ to: redirectTo ?? "/feed" });
     } else {
-      // No profile → setup
+      // Profile explicitly fetched and confirmed absent → setup
       navigate({ to: "/setup" });
     }
-  }, [identity, profile, profileFetched, navigate, redirectTo]);
+  }, [identity, profile, profileFetched, timedOut, navigate, redirectTo]);
 
   const handleLogin = () => {
     if (identity) {
@@ -83,9 +107,15 @@ export function LoginPage() {
             size="lg"
             className="w-full h-12 text-base font-semibold rounded-xl"
             onClick={handleLogin}
-            disabled={isLoggingIn || isInitializing}
+            disabled={
+              isLoggingIn ||
+              isInitializing ||
+              (!!identity && (actorFetching || profileLoading) && !timedOut)
+            }
           >
-            {isLoggingIn || isInitializing ? (
+            {isLoggingIn ||
+            isInitializing ||
+            (!!identity && (actorFetching || profileLoading) && !timedOut) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing in...

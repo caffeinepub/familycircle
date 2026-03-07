@@ -29,7 +29,7 @@ export function Navbar() {
   const handleLogout = async () => {
     await clear();
     queryClient.clear();
-    navigate({ to: "/login" });
+    navigate({ to: "/" });
   };
 
   const navLinks = [

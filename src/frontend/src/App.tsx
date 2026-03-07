@@ -85,12 +85,15 @@ function IndexPage() {
     return <LandingPage />;
   }
 
-  if (isFetched && !profile) {
+  // Only send to setup when profile was explicitly fetched and confirmed absent.
+  // If we timed out (actor init failure) we can't confirm absence, so fall through
+  // to FeedPage rather than incorrectly routing an existing user to setup.
+  if (isFetched && !profile && !timedOut) {
     // Has identity but no profile → setup
     return <SetupPage />;
   }
 
-  // Has profile → feed
+  // Has profile (or timed out) → feed
   return <FeedPage />;
 }
 
