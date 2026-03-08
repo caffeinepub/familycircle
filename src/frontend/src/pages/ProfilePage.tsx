@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Principal } from "@icp-sdk/core/principal";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import {
+  ChevronDown,
   Clock,
   Edit,
   Grid3X3,
@@ -48,6 +49,8 @@ import {
   useSendFriendRequest,
 } from "../hooks/useQueries";
 
+const PAGE_SIZE = 10;
+
 // ------ ProfilePost item ------
 
 function ProfilePost({
@@ -81,6 +84,7 @@ function PostsList({
   principal: Principal;
   currentUserPrincipal: string | undefined;
 }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { data: posts, isLoading } = useGetProfilePosts(principal);
 
   if (isLoading) {
@@ -95,19 +99,23 @@ function PostsList({
 
   if (!posts || posts.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div data-ocid="profile.posts.empty_state" className="text-center py-12">
         <Grid3X3 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">No posts yet</p>
       </div>
     );
   }
 
+  const sorted = posts
+    .slice()
+    .sort((a, b) => Number(b.createdAt - a.createdAt));
+  const visible = sorted.slice(0, visibleCount);
+  const remaining = sorted.length - visibleCount;
+
   return (
-    <div className="space-y-4">
-      {posts
-        .slice()
-        .sort((a, b) => Number(b.createdAt - a.createdAt))
-        .map((post, i) => (
+    <>
+      <div data-ocid="profile.posts.list" className="space-y-4">
+        {visible.map((post, i) => (
           <ProfilePost
             key={post.id.toString()}
             post={post}
@@ -115,7 +123,24 @@ function PostsList({
             index={i}
           />
         ))}
-    </div>
+      </div>
+      {remaining > 0 && (
+        <div className="flex justify-center mt-6">
+          <Button
+            data-ocid="profile.load_more_button"
+            variant="outline"
+            onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+            className="gap-2 px-6"
+          >
+            <ChevronDown className="h-4 w-4" />
+            Load more
+            <span className="text-muted-foreground text-xs">
+              ({remaining} remaining)
+            </span>
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 

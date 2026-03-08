@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { Principal } from "@icp-sdk/core/principal";
-import { Newspaper, Plus } from "lucide-react";
+import { ChevronDown, Newspaper, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { Post } from "../backend";
@@ -11,6 +11,8 @@ import { FeedSkeleton } from "../components/PostSkeleton";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetMainFeed, useGetUserProfile } from "../hooks/useQueries";
+
+const PAGE_SIZE = 10;
 
 // Individual post with resolved author
 function FeedPost({
@@ -38,6 +40,7 @@ function FeedPost({
 
 export function FeedPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { identity } = useInternetIdentity();
   const { isFetching: actorFetching } = useActor();
   const { data: feed, isLoading: feedLoading } = useGetMainFeed();
@@ -101,19 +104,38 @@ export function FeedPage() {
             </div>
           </motion.div>
         ) : (
-          <div className="space-y-4">
-            {feed
-              .slice()
-              .sort((a, b) => Number(b.createdAt - a.createdAt))
-              .map((post, i) => (
-                <FeedPost
-                  key={post.id.toString()}
-                  post={post}
-                  currentUserPrincipal={currentUserPrincipal}
-                  index={i}
-                />
-              ))}
-          </div>
+          <>
+            <div data-ocid="feed.post.list" className="space-y-4">
+              {feed
+                .slice()
+                .sort((a, b) => Number(b.createdAt - a.createdAt))
+                .slice(0, visibleCount)
+                .map((post, i) => (
+                  <FeedPost
+                    key={post.id.toString()}
+                    post={post}
+                    currentUserPrincipal={currentUserPrincipal}
+                    index={i}
+                  />
+                ))}
+            </div>
+            {feed.length > visibleCount && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  data-ocid="feed.load_more_button"
+                  variant="outline"
+                  onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+                  className="gap-2 px-6"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                  Load more
+                  <span className="text-muted-foreground text-xs">
+                    ({feed.length - visibleCount} remaining)
+                  </span>
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
