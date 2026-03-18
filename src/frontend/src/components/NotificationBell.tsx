@@ -8,7 +8,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import type { Notification } from "../backend";
@@ -23,7 +23,15 @@ import { UserAvatar } from "./UserAvatar";
 
 const NOTIFICATION_SKELETON_KEYS = ["ns-0", "ns-1", "ns-2"];
 
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({
+  notification,
+  onDismiss,
+  dismissIndex,
+}: {
+  notification: Notification;
+  onDismiss: (id: bigint) => void;
+  dismissIndex: number;
+}) {
   const navigate = useNavigate();
   const { data: relatedProfile } = useGetUserProfile(notification.relatedUser);
 
@@ -66,33 +74,52 @@ function NotificationItem({ notification }: { notification: Notification }) {
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-muted/60 transition-colors ${
+    <div
+      className={`group w-full flex items-start gap-3 hover:bg-muted/60 transition-colors ${
         !notification.read ? "bg-primary/5" : ""
       }`}
     >
-      <UserAvatar profile={relatedProfile} size="sm" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground leading-snug">{getMessage()}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {formatRelativeTime(notification.createdAt)}
-        </p>
-      </div>
-      {!notification.read && (
-        <div className="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex-1 text-left px-4 py-3 flex items-start gap-3 min-w-0"
+      >
+        <UserAvatar profile={relatedProfile} size="sm" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-foreground leading-snug">{getMessage()}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatRelativeTime(notification.createdAt)}
+          </p>
+        </div>
+        {!notification.read && (
+          <div className="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+        )}
+      </button>
+      <button
+        type="button"
+        data-ocid={`notifications.item.dismiss_button.${dismissIndex}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss(notification.id);
+        }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-3 mr-3 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+        aria-label="Dismiss notification"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const { data: notifications, isLoading } = useGetNotifications();
   const markRead = useMarkAllNotificationsRead();
 
-  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
+  const unreadCount =
+    notifications?.filter((n) => !n.read && !dismissed.has(n.id.toString()))
+      .length ?? 0;
   const doMarkRead = markRead.mutate;
 
   useEffect(() => {
@@ -100,6 +127,22 @@ export function NotificationBell() {
       doMarkRead();
     }
   }, [open, unreadCount, doMarkRead]);
+
+  const handleDismiss = useCallback((id: bigint) => {
+    setDismissed((prev) => new Set([...prev, id.toString()]));
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    if (notifications) {
+      setDismissed(new Set(notifications.map((n) => n.id.toString())));
+    }
+  }, [notifications]);
+
+  const visibleNotifications =
+    notifications
+      ?.filter((n) => !dismissed.has(n.id.toString()))
+      .slice()
+      .sort((a, b) => Number(b.createdAt - a.createdAt)) ?? [];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -129,17 +172,29 @@ export function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-80 p-0 rounded-2xl shadow-card-hover border-border/50"
+        className="w-80 p-0 rounded-2xl shadow-card-hover border-border/50 overflow-hidden"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">
           <h3 className="font-display font-semibold text-sm">Notifications</h3>
-          {unreadCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {unreadCount} new
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {unreadCount} new
+              </Badge>
+            )}
+            {visibleNotifications.length > 0 && (
+              <button
+                type="button"
+                data-ocid="notifications.clear_all_button"
+                onClick={handleClearAll}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
-        <ScrollArea className="max-h-[360px]">
+        <ScrollArea className="max-h-[340px]">
           {isLoading ? (
             <div className="space-y-1 p-2">
               {NOTIFICATION_SKELETON_KEYS.map((key) => (
@@ -152,14 +207,16 @@ export function NotificationBell() {
                 </div>
               ))}
             </div>
-          ) : notifications && notifications.length > 0 ? (
+          ) : visibleNotifications.length > 0 ? (
             <div className="divide-y divide-border/30">
-              {notifications
-                .slice()
-                .sort((a, b) => Number(b.createdAt - a.createdAt))
-                .map((n) => (
-                  <NotificationItem key={n.id.toString()} notification={n} />
-                ))}
+              {visibleNotifications.map((n, idx) => (
+                <NotificationItem
+                  key={n.id.toString()}
+                  notification={n}
+                  onDismiss={handleDismiss}
+                  dismissIndex={idx + 1}
+                />
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center px-4">
