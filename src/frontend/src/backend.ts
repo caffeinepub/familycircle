@@ -157,11 +157,13 @@ export interface backendInterface {
     acceptFriendRequest(friend: Principal): Promise<void>;
     addComment(postId: bigint, text: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    clearAllNotifications(): Promise<void>;
     createPost(caption: string, media: ExternalBlob, mediaType: MediaType): Promise<bigint>;
     declineFriendRequest(friend: Principal): Promise<void>;
     deleteComment(postId: bigint, commentId: bigint): Promise<void>;
     deletePost(id: bigint): Promise<void>;
     editPost(id: bigint, newCaption: string): Promise<void>;
+    dismissNotification(id: bigint): Promise<void>;
     getAcceptedFriends(): Promise<Array<Principal>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -331,6 +333,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async clearAllNotifications(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.clearAllNotifications();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.clearAllNotifications();
+            return result;
+        }
+    }
     async createPost(arg0: string, arg1: ExternalBlob, arg2: MediaType): Promise<bigint> {
         if (this.processError) {
             try {
@@ -384,6 +400,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deletePost(arg0);
+            return result;
+        }
+    }
+    async dismissNotification(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.dismissNotification(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.dismissNotification(arg0);
             return result;
         }
     }

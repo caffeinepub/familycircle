@@ -64,11 +64,13 @@ export interface backendInterface {
     acceptFriendRequest(friend: Principal): Promise<void>;
     addComment(postId: bigint, text: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    clearAllNotifications(): Promise<void>;
     createPost(caption: string, media: ExternalBlob, mediaType: MediaType): Promise<bigint>;
     declineFriendRequest(friend: Principal): Promise<void>;
     deleteComment(postId: bigint, commentId: bigint): Promise<void>;
     deletePost(id: bigint): Promise<void>;
     editPost(id: bigint, newCaption: string): Promise<void>;
+    dismissNotification(id: bigint): Promise<void>;
     getAcceptedFriends(): Promise<Array<Principal>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;

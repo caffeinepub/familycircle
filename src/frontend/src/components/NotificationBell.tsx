@@ -14,6 +14,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { Notification } from "../backend";
 import { NotificationType } from "../backend";
 import {
+  useClearAllNotifications,
+  useDismissNotification,
   useGetNotifications,
   useGetUserProfile,
   useMarkAllNotificationsRead,
@@ -26,11 +28,9 @@ const NOTIFICATION_SKELETON_KEYS = ["ns-0", "ns-1", "ns-2"];
 function NotificationItem({
   notification,
   onDismiss,
-  dismissIndex,
 }: {
   notification: Notification;
   onDismiss: (id: bigint) => void;
-  dismissIndex: number;
 }) {
   const navigate = useNavigate();
   const { data: relatedProfile } = useGetUserProfile(notification.relatedUser);
@@ -75,14 +75,14 @@ function NotificationItem({
 
   return (
     <div
-      className={`group w-full flex items-start gap-3 hover:bg-muted/60 transition-colors ${
+      className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/60 transition-colors group ${
         !notification.read ? "bg-primary/5" : ""
       }`}
     >
       <button
         type="button"
         onClick={handleClick}
-        className="flex-1 text-left px-4 py-3 flex items-start gap-3 min-w-0"
+        className="flex items-start gap-3 flex-1 min-w-0 text-left"
       >
         <UserAvatar profile={relatedProfile} size="sm" />
         <div className="flex-1 min-w-0">
@@ -97,12 +97,11 @@ function NotificationItem({
       </button>
       <button
         type="button"
-        data-ocid={`notifications.item.dismiss_button.${dismissIndex}`}
         onClick={(e) => {
           e.stopPropagation();
-          onDismiss(notification.id);
+          onDismiss(BigInt(notification.id));
         }}
-        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-3 mr-3 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+        className="mt-0.5 flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
         aria-label="Dismiss notification"
       >
         <X className="h-3.5 w-3.5" />
@@ -113,13 +112,13 @@ function NotificationItem({
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const { data: notifications, isLoading } = useGetNotifications();
   const markRead = useMarkAllNotificationsRead();
+  const dismiss = useDismissNotification();
+  const clearAll = useClearAllNotifications();
 
-  const unreadCount =
-    notifications?.filter((n) => !n.read && !dismissed.has(n.id.toString()))
-      .length ?? 0;
+  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
+  const hasNotifications = (notifications?.length ?? 0) > 0;
   const doMarkRead = markRead.mutate;
 
   useEffect(() => {
@@ -128,21 +127,12 @@ export function NotificationBell() {
     }
   }, [open, unreadCount, doMarkRead]);
 
-  const handleDismiss = useCallback((id: bigint) => {
-    setDismissed((prev) => new Set([...prev, id.toString()]));
-  }, []);
-
-  const handleClearAll = useCallback(() => {
-    if (notifications) {
-      setDismissed(new Set(notifications.map((n) => n.id.toString())));
-    }
-  }, [notifications]);
-
-  const visibleNotifications =
-    notifications
-      ?.filter((n) => !dismissed.has(n.id.toString()))
-      .slice()
-      .sort((a, b) => Number(b.createdAt - a.createdAt)) ?? [];
+  const handleDismiss = useCallback(
+    (id: bigint) => {
+      dismiss.mutate(id);
+    },
+    [dismiss],
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -172,29 +162,31 @@ export function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-80 p-0 rounded-2xl shadow-card-hover border-border/50 overflow-hidden"
+        className="w-80 p-0 rounded-2xl shadow-card-hover border-border/50"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">
-          <h3 className="font-display font-semibold text-sm">Notifications</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div className="flex items-center gap-2">
+            <h3 className="font-display font-semibold text-sm">
+              Notifications
+            </h3>
             {unreadCount > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {unreadCount} new
               </Badge>
             )}
-            {visibleNotifications.length > 0 && (
-              <button
-                type="button"
-                data-ocid="notifications.clear_all_button"
-                onClick={handleClearAll}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear all
-              </button>
-            )}
           </div>
+          {hasNotifications && (
+            <button
+              type="button"
+              onClick={() => clearAll.mutate()}
+              disabled={clearAll.isPending}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              Clear all
+            </button>
+          )}
         </div>
-        <ScrollArea className="max-h-[340px]">
+        <ScrollArea className="max-h-[400px]">
           {isLoading ? (
             <div className="space-y-1 p-2">
               {NOTIFICATION_SKELETON_KEYS.map((key) => (
@@ -207,16 +199,18 @@ export function NotificationBell() {
                 </div>
               ))}
             </div>
-          ) : visibleNotifications.length > 0 ? (
+          ) : notifications && notifications.length > 0 ? (
             <div className="divide-y divide-border/30">
-              {visibleNotifications.map((n, idx) => (
-                <NotificationItem
-                  key={n.id.toString()}
-                  notification={n}
-                  onDismiss={handleDismiss}
-                  dismissIndex={idx + 1}
-                />
-              ))}
+              {notifications
+                .slice()
+                .sort((a, b) => Number(b.createdAt - a.createdAt))
+                .map((n) => (
+                  <NotificationItem
+                    key={n.id.toString()}
+                    notification={n}
+                    onDismiss={handleDismiss}
+                  />
+                ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center px-4">

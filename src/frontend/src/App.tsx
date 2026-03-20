@@ -7,7 +7,6 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
 
@@ -39,11 +38,12 @@ const rootRoute = createRootRoute({
 // ------ Index Route (redirect based on auth state) ------
 
 // Maximum milliseconds to wait for profile load before proceeding anyway.
+// This prevents the loading screen from hanging forever if the backend
+// call stalls. Kept intentionally short so signed-in users aren't stuck.
 const LOADING_TIMEOUT_MS = 4_000;
 
 function IndexPage() {
   const { identity, isInitializing } = useInternetIdentity();
-  const { error: actorError } = useActor();
   const {
     data: profile,
     isLoading: profileLoading,
@@ -58,12 +58,14 @@ function IndexPage() {
 
   useEffect(() => {
     if (identity && profileLoading && !isFetched) {
+      // Start the timeout only when authenticated but still loading
       if (!timerRef.current) {
         timerRef.current = setTimeout(() => {
           setTimedOut(true);
         }, LOADING_TIMEOUT_MS);
       }
     } else {
+      // Loading resolved — clear any pending timer
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -79,40 +81,8 @@ function IndexPage() {
     };
   }, [identity, profileLoading, isFetched]);
 
-  // Show explicit error screen if actor creation failed (all retries exhausted)
-  if (actorError) {
-    return (
-      <div
-        className="min-h-screen bg-background flex items-center justify-center p-6"
-        data-ocid="app.error_state"
-      >
-        <div className="flex flex-col items-center gap-6 max-w-sm text-center">
-          <img
-            src="/assets/generated/mycircle-logo-transparent.dim_120x120.png"
-            alt="MyCircle"
-            className="h-12 w-12 opacity-60"
-          />
-          <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-foreground">
-              Something went wrong loading the app.
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              This may be a temporary issue. Please reload and try again.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-            data-ocid="app.reload_button"
-          >
-            Reload
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Show loading screen only while initialising auth or loading profile,
+  // BUT stop showing it if we've timed out (so the user isn't stuck).
   const isStillLoading = !timedOut && (isInitializing || profileLoading);
 
   if (isStillLoading) {
@@ -137,10 +107,16 @@ function IndexPage() {
     return <LandingPage />;
   }
 
+  // Only route to setup when we definitively confirmed there is no profile:
+  // the query completed (isFetched), we did NOT time out, there is no data,
+  // and there is no error. This is the true "new user" signal.
+  // Never route to setup on a timeout alone — prefer feed for signed-in users
+  // so profile data can finish loading in the background.
   if (isFetched && !timedOut && !profile && !profileError) {
     return <SetupPage />;
   }
 
+  // Signed-in user: go to feed (profile loads asynchronously in Navbar/FeedPage)
   return <FeedPage />;
 }
 

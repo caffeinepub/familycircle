@@ -24,28 +24,18 @@ export function useGetCallerUserProfile() {
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching,
-    // Retry once with a short fixed delay. A single retry handles transient
-    // canister hiccups without blocking the loading screen for too long.
     retry: 1,
     retryDelay: () => 800,
-    // Always re-fetch on mount so a fresh sign-in always gets the latest profile
     refetchOnMount: "always",
-    // No stale time — always treat as potentially stale so it re-runs on demand
     staleTime: 0,
-    // Only poll when the user is authenticated and the actor is ready but
-    // profile hasn't loaded yet. Never poll on the landing page (no identity)
-    // or after a persistent error (prevents hammering a failing canister).
     refetchInterval: (query) => {
-      if (!identity) return false; // not signed in — no polling
-      if (query.state.data) return false; // stop once we have data
-      if (query.state.status === "error") return false; // stop polling on error
+      if (!identity) return false;
+      if (query.state.data) return false;
+      if (query.state.status === "error") return false;
       return 4_000;
     },
   });
 
-  // Detect whether the actor query itself has permanently errored (all retries
-  // exhausted).  When this happens, actor stays null and isFetching = false.
-  // We surface this as `actorErrored` so callers can avoid waiting forever.
   const actorQueryKey = ["actor", identity?.getPrincipal().toString()];
   const actorQueryState = queryClient.getQueryState(actorQueryKey);
   const actorErrored =
@@ -54,10 +44,7 @@ export function useGetCallerUserProfile() {
   return {
     ...query,
     isLoading: actorFetching || query.isLoading,
-    // Consider the profile "fetched" if: the actor had data and query ran, OR
-    // the actor itself errored (in which case we treat it as a terminal state).
     isFetched: (!!actor && query.isFetched) || actorErrored,
-    // Surface actor error alongside query error so callers can handle both
     isError: query.isError || actorErrored,
   };
 }
@@ -453,6 +440,34 @@ export function useMarkAllNotificationsRead() {
     mutationFn: async () => {
       if (!actor) throw new Error("Not authenticated");
       await actor.markAllNotificationsAsRead();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useDismissNotification() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.dismissNotification(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useClearAllNotifications() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      await actor.clearAllNotifications();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });

@@ -116,10 +116,6 @@ actor {
   let usernameToPrincipal = Map.empty<Text, Principal>();
 
   // Tracks who *sent* each pending friend request.
-  // Key: (recipient, sender) encoded as "recipient:sender" text.
-  // When A sends to B: we store key "B_A" = true.
-  // This lets us distinguish sent-by-caller from received-by-caller
-  // without changing the FriendshipStatus variant type.
   let pendingRequestSenders = Map.empty<Text, Bool>();
 
   // New for comments/likes:
@@ -144,7 +140,6 @@ actor {
   };
 
   func isSenderOf(principal : Principal, other : Principal) : Bool {
-    // principal sent to other => key is "other_principal"
     switch (pendingRequestSenders.get(pendingKey(other, principal))) {
       case (?_) { true };
       case (null) { false };
@@ -159,7 +154,6 @@ actor {
     assertProfileExists(friend);
     assertFriendshipStatus(caller, friend, #accepted);
 
-    // Remove caller's entry for this friend
     switch (friendships.get(caller)) {
       case (?userFriendships) {
         let updatedFriendships = Map.empty<Principal, FriendshipStatus>();
@@ -173,7 +167,6 @@ actor {
       case (null) {};
     };
 
-    // Remove friend's entry for caller
     switch (friendships.get(friend)) {
       case (?friendFriendships) {
         let updatedFriendships = Map.empty<Principal, FriendshipStatus>();
@@ -291,7 +284,6 @@ actor {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    // Instead of trapping on not registered, just return null - this way #notAuthorized error bubbles up to frontend
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       return null;
     };
@@ -349,11 +341,9 @@ actor {
     if (caller == friend) { Runtime.trap("Cannot send friend request to yourself.") };
     assertNotFriendsOrPending(caller, friend);
 
-    // Both sides get #pending in the friendship map (stable type unchanged),
-    // but we separately record the sender so we can distinguish direction.
     updateFriendshipStatus(caller, friend, #pending);
     updateFriendshipStatus(friend, caller, #pending);
-    recordSender(friend, caller); // caller sent to friend
+    recordSender(friend, caller);
 
     sendNotification(friend, #friendRequestReceived, caller, null);
   };
@@ -365,13 +355,12 @@ actor {
     assertProfileExists(caller);
     assertProfileExists(friend);
     assertFriendshipStatus(caller, friend, #pending);
-    // Ensure the caller is the recipient, not the sender
     if (isSenderOf(caller, friend)) {
       Runtime.trap("Cannot accept a request you sent.");
     };
     updateFriendshipStatus(caller, friend, #accepted);
     updateFriendshipStatus(friend, caller, #accepted);
-    clearSender(caller, friend); // clear tracking
+    clearSender(caller, friend);
 
     sendNotification(friend, #friendRequestAccepted, caller, null);
   };
@@ -383,16 +372,14 @@ actor {
     assertProfileExists(caller);
     assertProfileExists(friend);
     assertFriendshipStatus(caller, friend, #pending);
-    // Ensure the caller is the recipient, not the sender
     if (isSenderOf(caller, friend)) {
       Runtime.trap("Cannot decline a request you sent.");
     };
     updateFriendshipStatus(caller, friend, #declined);
     updateFriendshipStatus(friend, caller, #declined);
-    clearSender(caller, friend); // clear tracking
+    clearSender(caller, friend);
   };
 
-  // Returns principals who sent a friend request TO the caller (received requests)
   public query ({ caller }) func getPendingFriendRequests() : async [Principal] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view requests");
@@ -401,7 +388,6 @@ actor {
 
     switch (friendships.get(caller)) {
       case (?userFriendships) {
-        // Only include if status is #pending AND the caller is NOT the sender
         userFriendships.filter(func(other, status) {
           status == #pending and not isSenderOf(caller, other)
         }).keys().toArray();
@@ -418,7 +404,6 @@ actor {
 
     switch (friendships.get(caller)) {
       case (?userFriendships) {
-        // Only include if status is #pending AND the caller IS the sender
         userFriendships.filter(func(other, status) {
           status == #pending and isSenderOf(caller, other)
         }).keys().toArray();
@@ -601,7 +586,6 @@ actor {
     switch (likes.get(postId)) {
       case (?currentLikes) {
         if (currentLikes.contains(caller)) {
-          // Unlike
           let updatedLikes = Set.empty<Principal>();
           for (principal in currentLikes.values()) {
             if (principal != caller) {
@@ -610,14 +594,12 @@ actor {
           };
           likes.add(postId, updatedLikes);
         } else {
-          // Like
           let newLikes = Set.fromIter(currentLikes.values());
           newLikes.add(caller);
           likes.add(postId, newLikes);
         };
       };
       case (null) {
-        // No likes yet, add first like
         let newLikes = Set.empty<Principal>();
         newLikes.add(caller);
         likes.add(postId, newLikes);
@@ -671,7 +653,6 @@ actor {
         switch (comment) {
           case (?c) {
             if (c.author != caller) { Runtime.trap("Only comment author can delete.") };
-            // Remove comment
             let updatedComments = postComments.filter(
               func(comment) { comment.id != commentId }
             );
@@ -742,7 +723,32 @@ actor {
     };
   };
 
-  // --- Internal functions (unchanged) --- //
+  public shared ({ caller }) func dismissNotification(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can dismiss notifications");
+    };
+    assertProfileExists(caller);
+
+    switch (notifications.get(caller)) {
+      case (?userNotifications) {
+        let updated = userNotifications.filter(
+          func(n) { n.id != id }
+        );
+        notifications.add(caller, updated);
+      };
+      case (null) {};
+    };
+  };
+
+  public shared ({ caller }) func clearAllNotifications() : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can clear notifications");
+    };
+    assertProfileExists(caller);
+    notifications.add(caller, List.empty<Notification>());
+  };
+
+  // --- Internal functions --- //
 
   func getCurrentUserInternal(p : Principal) : UserProfile {
     switch (profiles.get(p)) {
@@ -789,7 +795,6 @@ actor {
     assertUsernameValid(trimmedUsername);
   };
 
-  // Prevents duplicate/conflicting requests
   func assertNotFriendsOrPending(user1 : Principal, user2 : Principal) {
     switch (getFriendshipStatusInternal(user1, user2)) {
       case (?#accepted) { Runtime.trap("Already friends") };
@@ -884,4 +889,3 @@ actor {
     friendships.get(p);
   };
 };
-
